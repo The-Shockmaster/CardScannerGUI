@@ -1,0 +1,3 @@
+## 2024-04-12 - Prevent Expensive O(N log N) Sorts on Noise Contours
+**Learning:** In OpenCV image processing pipelines using `cv2.findContours`, sorting raw results by area natively involves `O(N log N)` computations across potentially thousands of tiny noise artifacts. Pre-filtering the array linearly `O(N)` first drastically reduces the dataset before executing the sort step.
+**Action:** Always pre-filter contour arrays by minimum area thresholds *before* sorting them, especially in noisy images.
