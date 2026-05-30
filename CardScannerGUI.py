@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QLabel, QListWidget, QPushButton, QProgressBar, QFileDialog, QMessageBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
+import concurrent.futures
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -136,10 +137,24 @@ class ProcessingWorker(QObject):
 
     def run(self):
         """The main processing loop."""
-        for i, file_path in enumerate(self.file_paths):
-            logging.info(f"Processing: {file_path}")
-            process_image(file_path, self.output_dir, self.args)
-            self.progress.emit(i + 1)
+        # ⚡ Bolt Optimization: Use ThreadPoolExecutor for concurrent image processing
+        # OpenCV (cv2) operations are implemented in C and release the Global Interpreter Lock (GIL).
+        # This allows true multi-threading in Python, significantly speeding up the batch processing
+        # of images by processing multiple images concurrently instead of sequentially.
+        completed = 0
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            # Create a helper function to preserve the logging and processing logic
+            def process_single(file_path):
+                logging.info(f"Processing: {file_path}")
+                process_image(file_path, self.output_dir, self.args)
+                return 1
+
+            # Submit all tasks and update progress as they complete
+            futures = [executor.submit(process_single, fp) for fp in self.file_paths]
+            for future in concurrent.futures.as_completed(futures):
+                completed += future.result()
+                self.progress.emit(completed)
+
         self.finished.emit()
 
 class MainWindow(QMainWindow):
