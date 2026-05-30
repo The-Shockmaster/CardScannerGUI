@@ -91,8 +91,10 @@ def process_image(image_path, output_dir, args):
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         found_cards = 0
-        for i, contour in enumerate(sorted(contours, key=cv2.contourArea, reverse=True)):
-            if cv2.contourArea(contour) < args.min_area: continue
+
+        # Optimize performance by pre-filtering small noise contours before expensive sorting operations
+        valid_contours = (c for c in contours if cv2.contourArea(c) >= args.min_area)
+        for i, contour in enumerate(sorted(valid_contours, key=cv2.contourArea, reverse=True)):
             peri = cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
             if len(approx) == 4:
