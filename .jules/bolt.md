@@ -1,0 +1,3 @@
+## 2025-02-23 - Sequential Batch Processing Bottleneck
+**Learning:** The `ProcessingWorker` processes images sequentially using computationally heavy OpenCV operations and Tesseract OCR (which runs as a subprocess). Because Tesseract creates subprocesses and OpenCV releases the GIL during its C++ execution, a sequential loop artificially limits the application to a single core, causing a massive performance bottleneck for batch processing.
+**Action:** Use `concurrent.futures.ThreadPoolExecutor` in PyQt worker threads to parallelize batch image processing, keeping all CPU cores active and drastically reducing total execution time.
