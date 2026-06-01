@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import pytesseract
 from pytesseract import TesseractError
+import concurrent.futures
 from types import SimpleNamespace
 
 from PyQt6.QtWidgets import (
@@ -136,10 +137,20 @@ class ProcessingWorker(QObject):
 
     def run(self):
         """The main processing loop."""
-        for i, file_path in enumerate(self.file_paths):
-            logging.info(f"Processing: {file_path}")
-            process_image(file_path, self.output_dir, self.args)
-            self.progress.emit(i + 1)
+        # ⚡ Bolt: Using ThreadPoolExecutor to parallelize image processing.
+        # OpenCV operations release the GIL, and pytesseract spawns external processes,
+        # so this provides a near-linear speedup matching the number of CPU cores.
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = {
+                executor.submit(process_image, file_path, self.output_dir, self.args): file_path
+                for file_path in self.file_paths
+            }
+
+            for i, future in enumerate(concurrent.futures.as_completed(futures)):
+                file_path = futures[future]
+                logging.info(f"Finished processing: {file_path}")
+                self.progress.emit(i + 1)
+
         self.finished.emit()
 
 class MainWindow(QMainWindow):
